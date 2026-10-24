@@ -76,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packaging-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .work/*/source/apps/desktop/.desktop-build/packaging-runs/
+          path: D:/dsh-build/*/source/apps/desktop/.desktop-build/packaging-runs/
           if-no-files-found: warn
           retention-days: 7
   release:

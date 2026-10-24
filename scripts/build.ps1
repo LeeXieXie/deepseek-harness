@@ -26,7 +26,8 @@ if ($LASTEXITCODE -ne 0 -or [version]$NodeVersion -lt [version]'24.9.0' -or ([ve
 $PnpmVersion = & pnpm --version
 if ($LASTEXITCODE -ne 0 -or $PnpmVersion.Trim() -ne $Pin.pnpm) { throw "Install pnpm $($Pin.pnpm) first." }
 # Every run owns a new checkout. Never write to the user's existing upstream clone.
-$Run = Join-Path $Root ('.work/' + [guid]::NewGuid().ToString('N'))
+$WorkRoot = Join-Path ([IO.Path]::GetPathRoot($Root)) 'dsh-build'
+$Run = Join-Path $WorkRoot ([guid]::NewGuid().ToString('N').Substring(0, 8))
 $Source = Join-Path $Run 'source'
 $Config = Join-Path $Run 'config'
 $Output = Join-Path $Root ('dist/' + $Version)
