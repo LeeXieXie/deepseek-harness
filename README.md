@@ -22,7 +22,7 @@ pwsh -NoProfile -File ./scripts/build.ps1
 
 ## CI 与交付
 
-入口 `.github/workflows/windows.yml`，仅 `workflow_dispatch`，`windows-latest`、Node 24、pnpm 11.28.5、Python 3.12 和 Rust MSVC，预检 VS 工具。version 可留空使用 pin。没有创建 repo、push、dispatch 或发布 Release 的实际操作。成功产物保存 14 天，失败打包日志保存 7 天。首次真实构建、GUI 启动和 Scoop 验收尚未完成，当前本机缺少 pwsh，无法完成脚本解析或构建。
+入口 `.github/workflows/windows.yml`，仅 `workflow_dispatch`，`windows-latest`、Node 24、pnpm 11.28.5、Python 3.12 和 Rust MSVC，预检 VS 工具。version 可留空使用 pin。`publish_draft` 默认 false，只有明确勾选且真实构建成功后，独立 release job 获得 contents:write 创建 draft prerelease，仍需人工 GUI 验收后公开。没有创建 repo、push、dispatch 或发布 Release 的实际操作。成功产物保存 14 天，失败打包日志保存 7 天。首次真实构建、GUI 启动和 Scoop 验收尚未完成，当前本机缺少 pwsh，无法完成脚本解析或构建。
 
 `dist/VERSION/` 输出 `dshdesktop-VERSION-windows-x64.zip`、`SHA256SUMS`、`build-source.json`、`LICENSE`、`THIRD_PARTY_NOTICES`。ZIP 根直接是完整 win-unpacked，入口 `DeepSeek Harness.exe`，不需要 extract_dir。这是免安装 ZIP，不承诺用户数据也在该目录。完整保留 Electron、ASAR、app.asar.unpacked、primary-runtime、Node/Python、所有嵌套许可，不瘦身。额外许可与记录不改动封存 resources。
 
