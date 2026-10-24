@@ -16,7 +16,7 @@ on:
         default: false
         type: boolean
       version:
-        description: Unique PRODUCTVERSION.YYYYMMDD.SEQUENCE (blank generates from run ID)
+        description: Unique product[prerelease].DATE.SEQ or stable product-test.DATE.SEQ (blank auto)
         required: false
         type: string
       force_build:

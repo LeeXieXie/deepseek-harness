@@ -9,8 +9,9 @@ Set-StrictMode -Version Latest
 $Root = Split-Path $PSScriptRoot -Parent
 $Pin = Get-Content (Join-Path $Root 'upstream.json') -Raw | ConvertFrom-Json
 if (!$Version) { $Version = $Pin.version }
-if ($Version -notmatch ('^' + [regex]::Escape($Pin.productVersion) + '\.\d{8}\.\d+$')) {
-    throw 'Version must be PRODUCTVERSION.YYYYMMDD.SEQUENCE, with no reused release version.'
+$VersionPrefix = if ($Pin.productVersion.Contains('-')) { $Pin.productVersion + '.' } else { $Pin.productVersion + '-test.' }
+if ($Version -notmatch ('^' + [regex]::Escape($VersionPrefix) + '\d{8}\.\d+$')) {
+    throw 'Version must be PRODUCTVERSION.YYYYMMDD.SEQUENCE for prerelease products or PRODUCTVERSION-test.YYYYMMDD.SEQUENCE for stable products, with no reused release version.'
 }
 if (!$IsWindows -or [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne 'X64') {
     throw 'A Windows x64 build host is required.'

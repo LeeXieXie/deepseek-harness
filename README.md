@@ -26,7 +26,7 @@ pwsh -NoProfile -File ./scripts/build.ps1
 
 轻量 Linux resolve job 先读取 canonical master SHA，再在该 SHA 读取 desktop/root package.json，校验 stable/prerelease 产品版本及 pnpm 精确版本。仅比较最后公开 latest Release 的 `build-source.json` source commit，未变化即跳过 Windows 和发布。API/元数据错误失败关闭，不视为无更新。当前上游 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60` 与已发布版本相同，正常检查应跳过，下一个源码变化触发重建。解析后的 upstream.json 作为 artifact 交给 Windows，repo/App ID 不变，pnpm 动态安装，完整 SHA 固定本次构建而非永久冻结。
 
-`version` 留空生成 `PRODUCTVERSION.YYYYMMDD.RUNID+ATTEMPT`（最后一段为 run ID 与至少三位 attempt 拼接的纯数字），保留 RC 后缀。可手填 `PRODUCTVERSION.YYYYMMDD.SEQUENCE`，但不强制重建。`force_build` 默认 false，仅明确设置才重建相同 SHA。`publish_draft` 保留，现含义为成功后只保留 draft，默认 false 会自动发布。全流程 concurrency 串行、不取消正在构建的流程，重复版本/tag 失败而非覆盖。
+`version` 留空时，prerelease 产品生成 `PRODUCTVERSION.YYYYMMDD.RUNID+ATTEMPT`，stable 产品生成 `PRODUCTVERSION-test.YYYYMMDD.RUNID+ATTEMPT`（例如 `1.2.3-test.20261024.12345002`，符合上游 desktop-build-version 约束，不生成非法 `1.2.3.DATE.SEQ`）。最后一段为 run ID 与至少三位 attempt 拼接的纯数字，保留现有 RC 后缀。手填版本必须使用对应 `PRODUCTVERSION.YYYYMMDD.SEQUENCE` 或 stable 的 `PRODUCTVERSION-test.YYYYMMDD.SEQUENCE`，但不强制重建。`force_build` 默认 false，仅明确设置才重建相同 SHA。`publish_draft` 保留，现含义为成功后只保留 draft，默认 false 会自动发布。全流程 concurrency 串行、不取消正在构建的流程，重复版本/tag 失败而非覆盖。
 
 Windows 保留原有 fail-closed 精确补丁、完整性与 smoke 检查。release job 仅构建成功后获得 contents:write，下载产物并严格验证 SHA256SUMS，再以全部资产创建 draft，上传成功后才转公开 non-draft、non-prerelease、latest，供 Scoop `/releases/latest` 读取。GitHub non-prerelease 只是社区分发约定，不代表上游非 RC。说明明确 unsigned、可能 RC、仅自动检查，无 GUI/账号/模型/Computer Use 验收。失败可能遗留 draft，需要人工处理，不覆盖既有资产。成功产物保存 14 天，失败打包日志保存 7 天。
 

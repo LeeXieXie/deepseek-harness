@@ -32,6 +32,11 @@ test('new SHA rebuilds with immutable metadata', async () => {
 test('stable and prerelease supported', async () => {
   for (const version of ['1.2.3', '1.2.3-beta.1', '1.2.3-0']) assert.equal((await run({ version })).metadata.productVersion, version);
 });
+test('stable build versions use upstream test prerelease grammar', async () => {
+  assert.equal((await run({ version: '1.2.3' })).metadata.version, '1.2.3-test.20261024.12345002');
+  assert.equal((await run({ version: '1.2.3' }, { requestedVersion: '1.2.3-test.20261024.9' })).metadata.version, '1.2.3-test.20261024.9');
+  await assert.rejects(run({ version: '1.2.3' }, { requestedVersion: '1.2.3.20261024.9' }), /Invalid community/);
+});
 test('invalid versions fail closed', async () => {
   for (const version of ['01.2.3', '1.2', '1.2.3-01', '1.2.3;evil', '1.2.3+build']) await assert.rejects(run({ version }), /Invalid product/);
   await assert.rejects(run({}, { requestedVersion: 'other' }), /Invalid community/);

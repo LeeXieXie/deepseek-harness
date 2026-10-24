@@ -39,8 +39,9 @@ export async function resolve({ fetchImpl = fetch, token, ownerRepo, runId, atte
     if (previous.repository !== repository || !/^[a-f0-9]{40}$/.test(previous.commit)) throw new Error('Invalid published source identity');
   }
   const date = now.toISOString().slice(0, 10).replaceAll('-', '');
-  const version = requestedVersion || `${desktop.version}.${date}.${runId}${attempt.padStart(3, '0')}`;
-  if (!version.startsWith(`${desktop.version}.`) || !/^\d{8}\.\d+$/.test(version.slice(desktop.version.length + 1))) throw new Error('Invalid community version');
+  const prefix = desktop.version.includes('-') ? `${desktop.version}.` : `${desktop.version}-test.`;
+  const version = requestedVersion || `${prefix}${date}.${runId}${attempt.padStart(3, '0')}`;
+  if (!version.startsWith(prefix) || !/^\d{8}\.\d+$/.test(version.slice(prefix.length))) throw new Error('Invalid community version');
   return { changed: force || previous?.commit !== head.sha, metadata: { repository, commit: head.sha, productVersion: desktop.version, version, pnpm: pnpm[1], appId: 'com.leexiexie.dshdesktop' } };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
