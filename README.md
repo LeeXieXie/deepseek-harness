@@ -6,7 +6,7 @@
 
 上游 unsigned 已省略普通 electron-updater feed，但 Windows 没有公开配置关闭 mandatory update policy。经明确决定，本配方在自己的临时 checkout 应用 `scripts/apply-community-patch.mjs`，标识 `community-unsigned-no-policy-v1`。它只把 electron-builder 的 policy 选择改为 `unsigned ? undefined : resolveDesktopPolicyEnvironment(env)`，并将 package environment 的 policy 预检改为仅非 unsigned 执行。两处精确原文必须各出现一次，先验证全部再写入，版本变化或重复执行都失败。
 
-上游 runtime 的 `resolveDesktopPolicyConfig(undefined)` 支持不查询政策，builder 的 beforePack 已对 undefined 提前返回。补丁使社区 unsigned 包没有 mandatory-policy 元数据，不填假 origin，不伪造服务响应，不修改认证、sandbox、签名验证、runtime inventory 或 smoke。signed 模式仍执行上游政策。构建记录明确标记补丁和 upstreamDirty，临时源码变更不是原始上游提交本身。包更新由 Scoop 管理。原始 `C:\code\deepseek-harness-build` 与 scoop-personal 均不改动。
+上游 runtime 的 `resolveDesktopPolicyConfig(undefined)` 支持不查询政策，builder 的 beforePack 已对 undefined 提前返回。补丁使社区 unsigned 包没有 mandatory-policy 元数据，不填假 origin，不伪造服务响应，不修改认证、sandbox、签名验证、runtime inventory 或 smoke。signed 模式仍执行上游政策。构建记录明确标记补丁和 upstreamDirty，临时源码变更不是原始上游提交本身。包更新由 Scoop 管理。本配方不改动原始 `C:\code\deepseek-harness-build`；Scoop 清单在独立的 [scoop-personal](https://github.com/LeeXieXie/scoop-personal/blob/master/bucket/dshdesktop.json) 中维护。
 
 ## 本地入口
 
@@ -22,15 +22,27 @@ pwsh -NoProfile -File ./scripts/build.ps1
 
 ## CI 与交付
 
-入口 `.github/workflows/windows.yml`，仅 `workflow_dispatch`，`windows-latest`、Node 24、pnpm 11.28.5、Python 3.12 和 Rust MSVC，预检 VS 工具。version 可留空使用 pin。`publish_draft` 默认 false，只有明确勾选且真实构建成功后，独立 release job 获得 contents:write 创建 draft prerelease，仍需人工 GUI 验收后公开。仓库已创建并推送配方，真实 Actions 构建已启动。成功产物保存 14 天，失败打包日志保存 7 天。首次真实构建已在 [Actions](https://github.com/LeeXieXie/dshdesktop-releases/actions) 执行：runtime 的离线插件安装/移除、Node/Python 依赖以及 DOCX/XLSX/PPTX 转 PDF 检查通过；目录包的 ConPTY 烟测因 Windows 过长 DLL 路径报错 206。配方改用盘符根目录短路径 `dsh-build/<8位随机标识>/source` 后重试，保留完整烟测，不跳过失败验证。GUI 与 Scoop 验收尚未完成。
+入口 `.github/workflows/windows.yml`，仅 `workflow_dispatch`，`windows-latest`、Node 24、pnpm 11.28.5、Python 3.12 和 Rust MSVC，预检 VS 工具。version 可留空使用 pin。`publish_draft` 默认 false，只有明确勾选且真实构建成功后，独立 release job 获得 contents:write 创建 draft prerelease，公开前由维护者审核并在 Release 记录验收范围。成功产物保存 14 天，失败打包日志保存 7 天。当前不自动跟随上游源码，不因 Scoop 定时检查自动重建。
+
+首轮打包的 ConPTY 烟测因 Windows 过长 DLL 路径报错 206。改用盘符根目录短路径、保留全部烟测后，[40065258134 的 Windows build job](https://github.com/LeeXieXie/dshdesktop-releases/actions/runs/40065258134/job/120787040274) 成功完成 runtime inventory、ASAR/payload、ConPTY/Host smoke 和 `build:check`。该次流程的 Release job 因上传目录路径失败，不将整次流程称为成功；[恢复流程 40066861865](https://github.com/LeeXieXie/dshdesktop-releases/actions/runs/40066861865) 对原始产物执行全部 SHA256 校验并上传，未重新压缩 ZIP。
+
+已公开 [v0.2.1-rc.3.20261024.1](https://github.com/LeeXieXie/dshdesktop-releases/releases/tag/v0.2.1-rc.3.20261024.1)，Windows x64 ZIP 为 401,996,208 字节，SHA256 `9a6fa842d68cffb5558d314fd142a31f54627f0d48baed8974b42f5e008f1003`。本机独立下载、哈希、Scoop 原生解压、EXE/Node/Python 架构与 runtime/许可文件校验通过。隔离 DSH_HOME 和 Electron user-data-dir 启动后观察到响应窗口及 Host；截图未可靠定位，未完成登录、模型会话、Computer Use 或完整 GUI 验收。启动有非致命 mandatory-status IPC handler 警告，见 Release 说明。此社区发布设为 latest 供 Scoop 检测，但明确包含上游 RC 代码，不代表稳定性保证。
 
 `dist/VERSION/` 输出 `dshdesktop-VERSION-windows-x64.zip`、`SHA256SUMS`、`build-source.json`、`LICENSE`、`THIRD_PARTY_NOTICES`。ZIP 根直接是完整 win-unpacked，入口 `DeepSeek Harness.exe`，不需要 extract_dir。这是免安装 ZIP，不承诺用户数据也在该目录。完整保留 Electron、ASAR、app.asar.unpacked、primary-runtime、Node/Python、所有嵌套许可，不瘦身。额外许可与记录不改动封存 resources。
 
-脚本检查关键文件、Python、无 app-update.yml 和 ZIP 文件数，上游 smoke 检查 runtime inventory、ASAR 和 Office 转换。发布前仍需真实 GUI 启动并确认不请求官方更新服务。unsigned 自有 EXE 可能触发 SmartScreen，不得冒充官方签名或要求关闭安全防护。
+脚本检查关键文件、Python、无 app-update.yml 和 ZIP 文件数，上游 smoke 检查 runtime inventory、ASAR 和 Office 转换。发布前仍需检查实际启动及更新行为，任何未覆盖的 GUI、网络行为或功能必须如实披露，不把进程存在当作完整验收。unsigned 自有 EXE 可能触发 SmartScreen，不得冒充官方签名或要求关闭安全防护。
 
 ## Scoop 发布约定
 
-真实构建与 GUI 验收后，维护者手动发布 `vVERSION` GitHub Release，上传原始 ZIP、SHA256SUMS 和记录，禁止重新压缩 ZIP。Scoop checkver 可匹配 `v([0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+\.[0-9]{8}\.[0-9]+)`，版本与文件名保持一致。hash 使用 SHA256SUMS 中 ZIP 的 SHA256，不是 Actions 外层下载包。每版唯一，不复用已有版本或官方 desktop-v tag。脚本拒绝覆盖本地已有版本目录。
+真实构建后，维护者核查原始 ZIP、SHA256SUMS 和记录，审核启动情况并如实记录未验证项，再手动发布 `vVERSION` GitHub Release，禁止重新压缩 ZIP。Scoop 在社区仓库的 `/releases/latest` 页面显式匹配完整 tag，保留 RC、日期和社区构建号，不使用会截断后缀的 GitHub 默认版本正则。hash 使用 SHA256SUMS 中 ZIP 的 SHA256，不是 Actions 外层下载包。每版唯一，不复用已有版本或官方 desktop-v tag。脚本拒绝覆盖本地已有版本目录。
+
+```powershell
+scoop bucket add personal https://github.com/LeeXieXie/scoop-personal
+scoop install personal/dshdesktop
+scoop update dshdesktop
+```
+
+开始菜单入口为 `DeepSeek Harness Desktop (Community)`。便携包自带运行时，不另装或覆盖 `dsh` CLI，不迁移或删除用户配置。勿与共享默认数据目录的官方版同时运行。Scoop 仅跟踪此仓库今后公开的社区 Release，更新上游 pin 与触发新构建仍需维护者操作。
 
 ## 许可与复现限制
 
