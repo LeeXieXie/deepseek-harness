@@ -1,4 +1,6 @@
-# dshdesktop community 0.2.1-rc.3.20261024.1
+# DeepSeek Harness 0.2.1-rc.3.20261024.1
+
+Naming update (2026-10-24): Scoop now uses the official Windows product name `DeepSeek Harness` for the Start Menu shortcut, matching the unchanged EXE product metadata. Package ID remains `dshdesktop`. Existing installs can close the app, run `scoop update`, `scoop uninstall dshdesktop` (without `--purge`), then `scoop install personal/dshdesktop` to replace the old Community-named shortcut. This same-version migration was verified with real Scoop install/uninstall commands. The original ZIP, version and SHA256 are unchanged.
 
 Unofficial, unsigned Windows x64 portable build of DeepSeek Harness Desktop.
 Not an official DeepSeek distribution. No signing certificate or official update service is used.
