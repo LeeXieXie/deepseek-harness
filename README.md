@@ -13,7 +13,7 @@
 需要 Windows x64、PowerShell 7、Node 24.9+（major 24）、pnpm **11.28.5**、Git、tar、Python 3、Rust MSVC、Visual C++ Build Tools 和 Windows SDK。上游目录模式仍编译 installer UI helper DLL，但 `--dir` 不运行 NSIS 编译器或生成安装器。下载需要 npm、GitHub release assets 和 nodejs.org。
 
 ```powershell
-cd C:\code\dshdesktop-releases
+cd C:\code\community-builds\deepseek-harness
 pwsh -NoProfile -File ./scripts/build.ps1 -CheckOnly
 pwsh -NoProfile -File ./scripts/build.ps1
 ```
@@ -24,9 +24,9 @@ pwsh -NoProfile -File ./scripts/build.ps1
 
 入口 `.github/workflows/windows.yml`，仅 `workflow_dispatch`，`windows-latest`、Node 24、pnpm 11.28.5、Python 3.12 和 Rust MSVC，预检 VS 工具。version 可留空使用 pin。`publish_draft` 默认 false，只有明确勾选且真实构建成功后，独立 release job 获得 contents:write 创建 draft prerelease，公开前由维护者审核并在 Release 记录验收范围。成功产物保存 14 天，失败打包日志保存 7 天。当前不自动跟随上游源码，不因 Scoop 定时检查自动重建。
 
-首轮打包的 ConPTY 烟测因 Windows 过长 DLL 路径报错 206。改用盘符根目录短路径、保留全部烟测后，[40065258134 的 Windows build job](https://github.com/LeeXieXie/dshdesktop-releases/actions/runs/40065258134/job/120787040274) 成功完成 runtime inventory、ASAR/payload、ConPTY/Host smoke 和 `build:check`。该次流程的 Release job 因上传目录路径失败，不将整次流程称为成功；[恢复流程 40066861865](https://github.com/LeeXieXie/dshdesktop-releases/actions/runs/40066861865) 对原始产物执行全部 SHA256 校验并上传，未重新压缩 ZIP。
+首轮打包的 ConPTY 烟测因 Windows 过长 DLL 路径报错 206。改用盘符根目录短路径、保留全部烟测后，[40065258134 的 Windows build job](https://github.com/LeeXieXie/deepseek-harness/actions/runs/40065258134/job/120787040274) 成功完成 runtime inventory、ASAR/payload、ConPTY/Host smoke 和 `build:check`。该次流程的 Release job 因上传目录路径失败，不将整次流程称为成功；[恢复流程 40066861865](https://github.com/LeeXieXie/deepseek-harness/actions/runs/40066861865) 对原始产物执行全部 SHA256 校验并上传，未重新压缩 ZIP。
 
-已公开 [v0.2.1-rc.3.20261024.1](https://github.com/LeeXieXie/dshdesktop-releases/releases/tag/v0.2.1-rc.3.20261024.1)，Windows x64 ZIP 为 401,996,208 字节，SHA256 `9a6fa842d68cffb5558d314fd142a31f54627f0d48baed8974b42f5e008f1003`。本机独立下载、哈希、Scoop 原生解压、EXE/Node/Python 架构与 runtime/许可文件校验通过。隔离 DSH_HOME 和 Electron user-data-dir 启动后观察到响应窗口及 Host；截图未可靠定位，未完成登录、模型会话、Computer Use 或完整 GUI 验收。启动有非致命 mandatory-status IPC handler 警告，见 Release 说明。此社区发布设为 latest 供 Scoop 检测，但明确包含上游 RC 代码，不代表稳定性保证。
+已公开 [v0.2.1-rc.3.20261024.1](https://github.com/LeeXieXie/deepseek-harness/releases/tag/v0.2.1-rc.3.20261024.1)，Windows x64 ZIP 为 401,996,208 字节，SHA256 `9a6fa842d68cffb5558d314fd142a31f54627f0d48baed8974b42f5e008f1003`。本机独立下载、哈希、Scoop 原生解压、EXE/Node/Python 架构与 runtime/许可文件校验通过。隔离 DSH_HOME 和 Electron user-data-dir 启动后观察到响应窗口及 Host；截图未可靠定位，未完成登录、模型会话、Computer Use 或完整 GUI 验收。启动有非致命 mandatory-status IPC handler 警告，见 Release 说明。此社区发布设为 latest 供 Scoop 检测，但明确包含上游 RC 代码，不代表稳定性保证。
 
 `dist/VERSION/` 输出 `dshdesktop-VERSION-windows-x64.zip`、`SHA256SUMS`、`build-source.json`、`LICENSE`、`THIRD_PARTY_NOTICES`。ZIP 根直接是完整 win-unpacked，入口 `DeepSeek Harness.exe`，不需要 extract_dir。这是免安装 ZIP，不承诺用户数据也在该目录。完整保留 Electron、ASAR、app.asar.unpacked、primary-runtime、Node/Python、所有嵌套许可，不瘦身。额外许可与记录不改动封存 resources。
 
