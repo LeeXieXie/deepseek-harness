@@ -18,11 +18,11 @@ pwsh -NoProfile -File ./scripts/build.ps1 -CheckOnly
 pwsh -NoProfile -File ./scripts/build.ps1
 ```
 
-`-CheckOnly` 仍会下载固定源和安装依赖。每次建立 `.work/<随机标识>/source`，保留失败目录用于诊断。完整入口执行 frozen install、配置/工具预检、`pnpm --dir apps/desktop run package:win:x64 --dir --unsigned --build-version VERSION`、上游 runtime/ASAR/payload/Host smoke、`build:check`，再制作 ZIP。失败立即停止，不绕过 smoke，不读取官方签名凭据或上传 COS。临时配置置于独立 config 目录，unsigned 不读取签名 secrets。
+`-CheckOnly` 仍会下载固定源和安装依赖。每次在当前盘符根目录建立 `dsh-build/<8位随机标识>/source`，以避开 Windows ConPTY DLL 路径限制，并保留失败目录用于诊断。完整入口执行 frozen install、配置/工具预检、`pnpm --dir apps/desktop run package:win:x64 --dir --unsigned --build-version VERSION`、上游 runtime/ASAR/payload/Host smoke、`build:check`，再制作 ZIP。失败立即停止，不绕过 smoke，不读取官方签名凭据或上传 COS。临时配置置于独立 config 目录，unsigned 不读取签名 secrets。
 
 ## CI 与交付
 
-入口 `.github/workflows/windows.yml`，仅 `workflow_dispatch`，`windows-latest`、Node 24、pnpm 11.28.5、Python 3.12 和 Rust MSVC，预检 VS 工具。version 可留空使用 pin。`publish_draft` 默认 false，只有明确勾选且真实构建成功后，独立 release job 获得 contents:write 创建 draft prerelease，仍需人工 GUI 验收后公开。没有创建 repo、push、dispatch 或发布 Release 的实际操作。成功产物保存 14 天，失败打包日志保存 7 天。首次真实构建、GUI 启动和 Scoop 验收尚未完成，当前本机缺少 pwsh，无法完成脚本解析或构建。
+入口 `.github/workflows/windows.yml`，仅 `workflow_dispatch`，`windows-latest`、Node 24、pnpm 11.28.5、Python 3.12 和 Rust MSVC，预检 VS 工具。version 可留空使用 pin。`publish_draft` 默认 false，只有明确勾选且真实构建成功后，独立 release job 获得 contents:write 创建 draft prerelease，仍需人工 GUI 验收后公开。仓库已创建并推送配方，真实 Actions 构建已启动。成功产物保存 14 天，失败打包日志保存 7 天。首次真实构建已在 [Actions](https://github.com/LeeXieXie/dshdesktop-releases/actions) 执行：runtime 的离线插件安装/移除、Node/Python 依赖以及 DOCX/XLSX/PPTX 转 PDF 检查通过；目录包的 ConPTY 烟测因 Windows 过长 DLL 路径报错 206。配方改用盘符根目录短路径 `dsh-build/<8位随机标识>/source` 后重试，保留完整烟测，不跳过失败验证。GUI 与 Scoop 验收尚未完成。
 
 `dist/VERSION/` 输出 `dshdesktop-VERSION-windows-x64.zip`、`SHA256SUMS`、`build-source.json`、`LICENSE`、`THIRD_PARTY_NOTICES`。ZIP 根直接是完整 win-unpacked，入口 `DeepSeek Harness.exe`，不需要 extract_dir。这是免安装 ZIP，不承诺用户数据也在该目录。完整保留 Electron、ASAR、app.asar.unpacked、primary-runtime、Node/Python、所有嵌套许可，不瘦身。额外许可与记录不改动封存 resources。
 
