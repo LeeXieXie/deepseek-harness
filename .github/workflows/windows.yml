@@ -97,4 +97,5 @@ jobs:
           RELEASE_VERSION: ${{ needs.build.outputs.version }}
           RECIPE_COMMIT: ${{ github.sha }}
         run: |
-          gh release create "v$RELEASE_VERSION" release-assets/* --target "$RECIPE_COMMIT" --draft --prerelease --title "dshdesktop community $RELEASE_VERSION" --notes "Unsigned community build, not an official DeepSeek release. GUI qualification required before publication. See build-source.json and SHA256SUMS."
+          gh release view "v$RELEASE_VERSION" > /dev/null 2>&1 || gh release create "v$RELEASE_VERSION" --target "$RECIPE_COMMIT" --draft --prerelease --title "dshdesktop community $RELEASE_VERSION" --notes "Unsigned community build, not an official DeepSeek release. GUI qualification required before publication. See build-source.json and SHA256SUMS."
+          gh release upload "v$RELEASE_VERSION" "release-assets/$RELEASE_VERSION/"*
