@@ -1,38 +1,79 @@
 name: Build community Windows x64 ZIP
 on:
+  schedule:
+    - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
       publish_draft:
-        description: Create a draft community Release only after successful build
+        description: Keep manual build as draft instead of automatically publishing latest
         required: true
         default: false
         type: boolean
       version:
-        description: Unique PRODUCTVERSION.YYYYMMDD.SEQUENCE (blank uses upstream.json)
+        description: Unique PRODUCTVERSION.YYYYMMDD.SEQUENCE (blank generates from run ID)
         required: false
         type: string
+      force_build:
+        description: Rebuild even if published source is unchanged
+        default: false
+        type: boolean
 permissions:
   contents: read
 concurrency:
   group: community-windows-build
   cancel-in-progress: false
 jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.resolve.outputs.changed }}
+      version: ${{ steps.resolve.outputs.version }}
+      pnpm: ${{ steps.resolve.outputs.pnpm }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - run: node --test scripts/test-resolve-upstream.mjs
+      - id: resolve
+        run: node scripts/resolve-upstream.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ inputs.version }}
+          FORCE_BUILD: ${{ inputs.force_build }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.resolve.outputs.changed == 'true'
+        with:
+          name: resolved-upstream
+          path: upstream.json
+          if-no-files-found: error
   build:
+    needs: resolve
+    if: needs.resolve.outputs.changed == 'true'
     runs-on: windows-latest
     timeout-minutes: 180
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ needs.resolve.outputs.version }}
     defaults:
       run:
         shell: pwsh
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: resolved-upstream
+          path: .
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
-          version: '11.28.5'
+          version: ${{ needs.resolve.outputs.pnpm }}
           run_install: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
@@ -50,18 +91,9 @@ jobs:
           $env:PYTHON = (Get-Command python).Source
           "PYTHON=$env:PYTHON" >> $env:GITHUB_ENV
           git config --global core.longpaths true
-      - name: Resolve release version
-        id: version
-        env:
-          REQUESTED_VERSION: ${{ inputs.version }}
-        run: |
-          $version = $env:REQUESTED_VERSION
-          if (!$version) { $version = (Get-Content upstream.json -Raw | ConvertFrom-Json).version }
-          if ($version -notmatch '^\d+\.\d+\.\d+-rc\.\d+\.\d{8}\.\d+$') { throw 'Invalid version' }
-          "version=$version" >> $env:GITHUB_OUTPUT
       - name: Build unsigned directory and archive
         env:
-          COMMUNITY_VERSION: ${{ inputs.version }}
+          COMMUNITY_VERSION: ${{ needs.resolve.outputs.version }}
         run: ./scripts/build.ps1 -Version $env:COMMUNITY_VERSION
       - name: Retain ZIP, checksums and build record
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -81,7 +113,7 @@ jobs:
           retention-days: 7
   release:
     needs: build
-    if: ${{ inputs.publish_draft && needs.build.result == 'success' }}
+    if: ${{ needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -90,12 +122,24 @@ jobs:
         with:
           name: dshdesktop-windows-x64-${{ github.run_id }}-${{ github.run_attempt }}
           path: release-assets
-      - name: Create draft for manual GUI qualification
+      - name: Verify checksums and publish unique community release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ needs.build.outputs.version }}
           RECIPE_COMMIT: ${{ github.sha }}
+          PUBLISH_DRAFT: ${{ inputs.publish_draft }}
         run: |
-          gh release view "v$RELEASE_VERSION" > /dev/null 2>&1 || gh release create "v$RELEASE_VERSION" --target "$RECIPE_COMMIT" --draft --prerelease --title "DeepSeek Harness $RELEASE_VERSION" --notes "Unsigned community build, not an official DeepSeek release. GUI qualification required before publication. See build-source.json and SHA256SUMS."
-          gh release upload "v$RELEASE_VERSION" "release-assets/$RELEASE_VERSION/"*
+          set -euo pipefail
+          cd release-assets
+          test -f SHA256SUMS || cd "$RELEASE_VERSION"
+          sha256sum --check --strict SHA256SUMS
+          # Never reuse a tag or overwrite an asset, including a failed prior draft.
+          if gh api "repos/$GH_REPO/git/ref/tags/v$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo 'Release tag already exists, refusing reuse' >&2
+            exit 1
+          fi
+          gh release create "v$RELEASE_VERSION" ./* --target "$RECIPE_COMMIT" --draft --title "DeepSeek Harness $RELEASE_VERSION" --notes "Unsigned community build, not an official DeepSeek release. May contain upstream release-candidate (RC) code even though GitHub marks this community release latest for Scoop. Automated packaging integrity, runtime/ASAR/payload/Host smoke and build:check only. No GUI, account, model-session or Computer Use qualification. SmartScreen warnings are possible. See build-source.json and SHA256SUMS."
+          if [ "$PUBLISH_DRAFT" != 'true' ]; then
+            gh release edit "v$RELEASE_VERSION" --draft=false --prerelease=false --latest
+          fi

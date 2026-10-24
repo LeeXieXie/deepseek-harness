@@ -42,7 +42,7 @@ if ($LASTEXITCODE -ne 0 -or $Commit.Trim() -ne $Pin.commit) { throw 'Upstream co
 $Manifest = Get-Content "$Source/apps/desktop/package.json" -Raw | ConvertFrom-Json
 if ($Manifest.version -ne $Pin.productVersion) { throw 'Desktop version mismatch.' }
 $UpstreamRoot = Get-Content "$Source/package.json" -Raw | ConvertFrom-Json
-if ($UpstreamRoot.packageManager -notlike "pnpm@$($Pin.pnpm)*") { throw 'Upstream pnpm pin mismatch.' }
+if ($UpstreamRoot.packageManager -notmatch ('^pnpm@' + [regex]::Escape($Pin.pnpm) + '(\+sha(224|256|384|512)\.[a-fA-F0-9]+)?$')) { throw 'Upstream pnpm pin mismatch.' }
 @"
 DSH_DESKTOP_APP_ID=$($Pin.appId)
 DSH_DESKTOP_AUTO_UPDATE_ENV=production

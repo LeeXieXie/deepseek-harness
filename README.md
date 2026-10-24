@@ -1,6 +1,6 @@
 # DeepSeek Harness community builds
 
-独立构建配方，不是 DeepSeek 官方发行或上游源码 fork。上游固定 `deepseek-ai/deepseek-harness@22ddee3792402c3e70ec5f86a63c3e3e895a2f60`，产品 `0.2.1-rc.3`，社区版本默认 `0.2.1-rc.3.20261024.1`，App ID `com.leexiexie.dshdesktop`。
+独立构建配方，不是 DeepSeek 官方发行或上游源码 fork。CI 自动跟踪 canonical `deepseek-ai/deepseek-harness` 的 `master`，每次构建固定解析得到的完整 SHA。仓库内 `upstream.json` 仅为本地复现快照：`deepseek-ai/deepseek-harness@22ddee3792402c3e70ec5f86a63c3e3e895a2f60`，产品 `0.2.1-rc.3`，社区版本默认 `0.2.1-rc.3.20261024.1`，App ID `com.leexiexie.dshdesktop`。
 
 ## 更新行为与显式社区补丁
 
@@ -22,7 +22,15 @@ pwsh -NoProfile -File ./scripts/build.ps1
 
 ## CI 与交付
 
-入口 `.github/workflows/windows.yml`，仅 `workflow_dispatch`，`windows-latest`、Node 24、pnpm 11.28.5、Python 3.12 和 Rust MSVC，预检 VS 工具。version 可留空使用 pin。`publish_draft` 默认 false，只有明确勾选且真实构建成功后，独立 release job 获得 contents:write 创建 draft prerelease，公开前由维护者审核并在 Release 记录验收范围。成功产物保存 14 天，失败打包日志保存 7 天。当前不自动跟随上游源码，不因 Scoop 定时检查自动重建。
+入口 `.github/workflows/windows.yml`：`schedule` 每 5 分钟（`*/5`，GitHub 最小周期）及 `workflow_dispatch`。GitHub 定时任务不是准时服务，可能延迟或丢弃，只在默认分支执行，长期无活动也可能被禁用。真正 3 分钟轮询需另外配置外部定时器调用 workflow_dispatch，本仓库未部署外部定时器。
+
+轻量 Linux resolve job 先读取 canonical master SHA，再在该 SHA 读取 desktop/root package.json，校验 stable/prerelease 产品版本及 pnpm 精确版本。仅比较最后公开 latest Release 的 `build-source.json` source commit，未变化即跳过 Windows 和发布。API/元数据错误失败关闭，不视为无更新。当前上游 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60` 与已发布版本相同，正常检查应跳过，下一个源码变化触发重建。解析后的 upstream.json 作为 artifact 交给 Windows，repo/App ID 不变，pnpm 动态安装，完整 SHA 固定本次构建而非永久冻结。
+
+`version` 留空生成 `PRODUCTVERSION.YYYYMMDD.RUNID+ATTEMPT`（最后一段为 run ID 与至少三位 attempt 拼接的纯数字），保留 RC 后缀。可手填 `PRODUCTVERSION.YYYYMMDD.SEQUENCE`，但不强制重建。`force_build` 默认 false，仅明确设置才重建相同 SHA。`publish_draft` 保留，现含义为成功后只保留 draft，默认 false 会自动发布。全流程 concurrency 串行、不取消正在构建的流程，重复版本/tag 失败而非覆盖。
+
+Windows 保留原有 fail-closed 精确补丁、完整性与 smoke 检查。release job 仅构建成功后获得 contents:write，下载产物并严格验证 SHA256SUMS，再以全部资产创建 draft，上传成功后才转公开 non-draft、non-prerelease、latest，供 Scoop `/releases/latest` 读取。GitHub non-prerelease 只是社区分发约定，不代表上游非 RC。说明明确 unsigned、可能 RC、仅自动检查，无 GUI/账号/模型/Computer Use 验收。失败可能遗留 draft，需要人工处理，不覆盖既有资产。成功产物保存 14 天，失败打包日志保存 7 天。
+
+离线回归：`node --test scripts/test-resolve-upstream.mjs`、`node scripts/test-community-patch.mjs`。
 
 首轮打包的 ConPTY 烟测因 Windows 过长 DLL 路径报错 206。改用盘符根目录短路径、保留全部烟测后，[40065258134 的 Windows build job](https://github.com/LeeXieXie/deepseek-harness/actions/runs/40065258134/job/120787040274) 成功完成 runtime inventory、ASAR/payload、ConPTY/Host smoke 和 `build:check`。该次流程的 Release job 因上传目录路径失败，不将整次流程称为成功；[恢复流程 40066861865](https://github.com/LeeXieXie/deepseek-harness/actions/runs/40066861865) 对原始产物执行全部 SHA256 校验并上传，未重新压缩 ZIP。
 
@@ -34,7 +42,7 @@ pwsh -NoProfile -File ./scripts/build.ps1
 
 ## Scoop 发布约定
 
-真实构建后，维护者核查原始 ZIP、SHA256SUMS 和记录，审核启动情况并如实记录未验证项，再手动发布 `vVERSION` GitHub Release，禁止重新压缩 ZIP。Scoop 在社区仓库的 `/releases/latest` 页面显式匹配完整 tag，保留 RC、日期和社区构建号，不使用会截断后缀的 GitHub 默认版本正则。hash 使用 SHA256SUMS 中 ZIP 的 SHA256，不是 Actions 外层下载包。每版唯一，不复用已有版本或官方 desktop-v tag。脚本拒绝覆盖本地已有版本目录。
+真实构建后，维护者核查原始 ZIP、SHA256SUMS 和记录，审核启动情况并如实记录未验证项，自动校验通过后发布 `vVERSION` GitHub Release（手动可选择只保留 draft），禁止重新压缩 ZIP。Scoop 在社区仓库的 `/releases/latest` 页面显式匹配完整 tag，保留 RC、日期和社区构建号，不使用会截断后缀的 GitHub 默认版本正则。hash 使用 SHA256SUMS 中 ZIP 的 SHA256，不是 Actions 外层下载包。每版唯一，不复用已有版本或官方 desktop-v tag。脚本拒绝覆盖本地已有版本目录。
 
 ```powershell
 scoop bucket add personal https://github.com/LeeXieXie/scoop-personal
@@ -54,7 +62,7 @@ scoop install personal/deepseek-harness
 
 卸载时不要加 `--purge`；上述操作保留上游默认用户目录中的配置，不迁移或删除现有数据。不要同时安装新旧两个包，它们共享同名开始菜单快捷方式和用户配置。
 
-便携包自带运行时，不另装或覆盖 `dsh` CLI，不迁移或删除用户配置。勿与共享默认数据目录的官方版同时运行。Scoop 仅跟踪此仓库今后公开的社区 Release，更新上游 pin 与触发新构建仍需维护者操作。
+便携包自带运行时，不另装或覆盖 `dsh` CLI，不迁移或删除用户配置。勿与共享默认数据目录的官方版同时运行。Scoop 仅跟踪此仓库今后公开的社区 Release，CI 会自动解析上游变化并构建发布，不必手动更新本地复现快照 pin。
 
 新包 ID 的实际迁移验收（2026-10-24）：使用未修改的真实 Scoop Core 和独立根目录，先安装旧 `dshdesktop`；模拟更新桶后旧清单已删除，普通 `scoop uninstall dshdesktop` 仍能依据已安装记录成功卸载。再从最终远端清单执行 `scoop install personal/deepseek-harness`，`info` 报告新包 ID、`personal` 来源与原完整版本，实际快捷方式目标和工作目录均指向 `apps/deepseek-harness/current`；`status --local` 健康、`update deepseek-harness` 识别已是最新版，最后正常卸载清理测试包。21 项断言通过，独立预置的配置标记哈希、用户/系统 PATH 和既有 Scoop 配置哈希全程不变。最终清单未被本地改写，原 ZIP、App ID 和二进制不变。双 Shell CI 与线上 10 包监听通过，其中实际下载验收使用新包名。
 
