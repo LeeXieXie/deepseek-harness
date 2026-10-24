@@ -44,6 +44,8 @@ scoop update dshdesktop
 
 开始菜单入口为 `DeepSeek Harness Desktop (Community)`。便携包自带运行时，不另装或覆盖 `dsh` CLI，不迁移或删除用户配置。勿与共享默认数据目录的官方版同时运行。Scoop 仅跟踪此仓库今后公开的社区 Release，更新上游 pin 与触发新构建仍需维护者操作。
 
+2026-10-24 另以未修改的真实 Scoop Core 和独立临时根目录完成用户路径验收：从远端 `scoop-personal` 执行 `bucket add personal`，使用已独立下载并验证的原始公开 ZIP 作为缓存，保留 Scoop 自身哈希检查，实际 `install personal/dshdesktop` 成功。安装记录与 `info` 均保留完整版本 `0.2.1-rc.3.20261024.1`、`personal` 来源及 x64 架构，`current` 指向真实 EXE/运行时；真实生成的开始菜单快捷方式目标和工作目录正确。`status --local` 返回 `Everything is ok!`，`update dshdesktop` 返回已是最新版，未生成 `dsh` CLI shim。随后真实 `uninstall dshdesktop` 成功，测试应用与快捷方式均移除，用户和系统 PATH、既有 Scoop 配置哈希均未变化。此验收证明 Scoop 安装/管理闭环，不扩展为账号、模型会话或完整 GUI 功能通过。
+
 ## 许可与复现限制
 
 根依赖安装锁定，但上游 runtime preparation 生成新 runtime lockfile，不保证不同日期构建字节可复现。记录包含实际 Node/pnpm、上游提交、版本、unsigned 和社区补丁。更新 pin 时重新审核补丁、资源布局和许可。
