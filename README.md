@@ -1,4 +1,4 @@
-# dshdesktop community builds
+# DeepSeek Harness community builds
 
 独立构建配方，不是 DeepSeek 官方发行或上游源码 fork。上游固定 `deepseek-ai/deepseek-harness@22ddee3792402c3e70ec5f86a63c3e3e895a2f60`，产品 `0.2.1-rc.3`，社区版本默认 `0.2.1-rc.3.20261024.1`，App ID `com.leexiexie.dshdesktop`。
 
@@ -6,7 +6,7 @@
 
 上游 unsigned 已省略普通 electron-updater feed，但 Windows 没有公开配置关闭 mandatory update policy。经明确决定，本配方在自己的临时 checkout 应用 `scripts/apply-community-patch.mjs`，标识 `community-unsigned-no-policy-v1`。它只把 electron-builder 的 policy 选择改为 `unsigned ? undefined : resolveDesktopPolicyEnvironment(env)`，并将 package environment 的 policy 预检改为仅非 unsigned 执行。两处精确原文必须各出现一次，先验证全部再写入，版本变化或重复执行都失败。
 
-上游 runtime 的 `resolveDesktopPolicyConfig(undefined)` 支持不查询政策，builder 的 beforePack 已对 undefined 提前返回。补丁使社区 unsigned 包没有 mandatory-policy 元数据，不填假 origin，不伪造服务响应，不修改认证、sandbox、签名验证、runtime inventory 或 smoke。signed 模式仍执行上游政策。构建记录明确标记补丁和 upstreamDirty，临时源码变更不是原始上游提交本身。包更新由 Scoop 管理。本配方不改动原始 `C:\code\deepseek-harness-build`；Scoop 清单在独立的 [scoop-personal](https://github.com/LeeXieXie/scoop-personal/blob/master/bucket/dshdesktop.json) 中维护。
+上游 runtime 的 `resolveDesktopPolicyConfig(undefined)` 支持不查询政策，builder 的 beforePack 已对 undefined 提前返回。补丁使社区 unsigned 包没有 mandatory-policy 元数据，不填假 origin，不伪造服务响应，不修改认证、sandbox、签名验证、runtime inventory 或 smoke。signed 模式仍执行上游政策。构建记录明确标记补丁和 upstreamDirty，临时源码变更不是原始上游提交本身。包更新由 Scoop 管理。本配方不改动原始 `C:\code\deepseek-harness-build`；Scoop 清单在独立的 [scoop-personal](https://github.com/LeeXieXie/scoop-personal/blob/master/bucket/deepseek-harness.json) 中维护。
 
 ## 本地入口
 
@@ -38,23 +38,27 @@ pwsh -NoProfile -File ./scripts/build.ps1
 
 ```powershell
 scoop bucket add personal https://github.com/LeeXieXie/scoop-personal
-scoop install personal/dshdesktop
-scoop update dshdesktop
+scoop install personal/deepseek-harness
+scoop update deepseek-harness
 ```
 
-开始菜单入口为 `DeepSeek Harness`，与官方 Windows `productName` 一致，名称不再追加 `Desktop` 或 `Community`；Scoop 包名仍为 `dshdesktop`。
+开始菜单入口为 `DeepSeek Harness`，与官方 Windows `productName` 一致，名称不再追加 `Desktop` 或 `Community`；Scoop 包 ID 为 `deepseek-harness`。
 
-已安装旧名称快捷方式的用户，请先关闭应用，再依次执行以下命令以重建开始菜单入口。同版本的普通 `scoop update` 和 `scoop reset` 不会读取更新后的桶清单来重建现有名称：
+已安装旧包 ID `dshdesktop` 的用户，请先关闭应用，再依次执行以下命令迁移到新包 ID。包名变更不会被普通 `scoop update` 自动迁移：
 
 ```powershell
 scoop update
 scoop uninstall dshdesktop
-scoop install personal/dshdesktop
+scoop install personal/deepseek-harness
 ```
 
-卸载时不要加 `--purge`；上述操作不迁移或删除上游默认用户目录中的配置。不使用同版本强制更新更名，因为本机 Scoop 的该实现不会移除旧名称快捷方式，会留下旧链接。
+卸载时不要加 `--purge`；上述操作保留上游默认用户目录中的配置，不迁移或删除现有数据。不要同时安装新旧两个包，它们共享同名开始菜单快捷方式和用户配置。
 
 便携包自带运行时，不另装或覆盖 `dsh` CLI，不迁移或删除用户配置。勿与共享默认数据目录的官方版同时运行。Scoop 仅跟踪此仓库今后公开的社区 Release，更新上游 pin 与触发新构建仍需维护者操作。
+
+新包 ID 的实际迁移验收（2026-10-24）：使用未修改的真实 Scoop Core 和独立根目录，先安装旧 `dshdesktop`；模拟更新桶后旧清单已删除，普通 `scoop uninstall dshdesktop` 仍能依据已安装记录成功卸载。再从最终远端清单执行 `scoop install personal/deepseek-harness`，`info` 报告新包 ID、`personal` 来源与原完整版本，实际快捷方式目标和工作目录均指向 `apps/deepseek-harness/current`；`status --local` 健康、`update deepseek-harness` 识别已是最新版，最后正常卸载清理测试包。21 项断言通过，独立预置的配置标记哈希、用户/系统 PATH 和既有 Scoop 配置哈希全程不变。最终清单未被本地改写，原 ZIP、App ID 和二进制不变。双 Shell CI 与线上 10 包监听通过，其中实际下载验收使用新包名。
+
+以下为当时使用旧包 ID `dshdesktop` 的实际验收记录，保留为历史证据：
 
 2026-10-24 另以未修改的真实 Scoop Core 和独立临时根目录完成用户路径验收：从远端 `scoop-personal` 执行 `bucket add personal`，使用已独立下载并验证的原始公开 ZIP 作为缓存，保留 Scoop 自身哈希检查，实际 `install personal/dshdesktop` 成功。安装记录与 `info` 均保留完整版本 `0.2.1-rc.3.20261024.1`、`personal` 来源及 x64 架构，`current` 指向真实 EXE/运行时；真实生成的开始菜单快捷方式目标和工作目录正确。`status --local` 返回 `Everything is ok!`，`update dshdesktop` 返回已是最新版，未生成 `dsh` CLI shim。随后真实 `uninstall dshdesktop` 成功，测试应用与快捷方式均移除，用户和系统 PATH、既有 Scoop 配置哈希均未变化。此验收证明 Scoop 安装/管理闭环，不扩展为账号、模型会话或完整 GUI 功能通过。
 
