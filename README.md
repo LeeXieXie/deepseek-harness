@@ -22,7 +22,7 @@ pwsh -NoProfile -File ./scripts/build.ps1
 
 ## CI 与交付
 
-入口 `.github/workflows/windows.yml`：`schedule` 每 5 分钟（`*/5`，GitHub 最小周期）及 `workflow_dispatch`。GitHub 定时任务不是准时服务，可能延迟或丢弃，只在默认分支执行，长期无活动也可能被禁用。真正 3 分钟轮询需另外配置外部定时器调用 workflow_dispatch，本仓库未部署外部定时器。
+入口 `.github/workflows/windows.yml`：`schedule` 每 5 分钟（`*/5`，GitHub 最小周期）、默认分支构建配方变更后的 `push` 及 `workflow_dispatch`。GitHub 定时任务不是准时服务，可能延迟或丢弃，只在默认分支执行，长期无活动也可能被禁用。真正 3 分钟轮询需另外配置外部定时器调用 workflow_dispatch，本仓库未部署外部定时器。
 
 轻量 Linux resolve job 先读取 canonical master SHA，再在该 SHA 读取 desktop/root package.json，校验 stable/prerelease 产品版本及 pnpm 精确版本。仅比较最后公开 latest Release 的 `build-source.json` source commit，未变化即跳过 Windows 和发布。API/元数据错误失败关闭，不视为无更新。当前上游 `22ddee3792402c3e70ec5f86a63c3e3e895a2f60` 与已发布版本相同，正常检查应跳过，下一个源码变化触发重建。解析后的 upstream.json 作为 artifact 交给 Windows，repo/App ID 不变，pnpm 动态安装，完整 SHA 固定本次构建而非永久冻结。
 

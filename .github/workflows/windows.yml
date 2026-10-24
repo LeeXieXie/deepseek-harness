@@ -1,5 +1,11 @@
 name: Build community Windows x64 ZIP
 on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/windows.yml'
+      - 'scripts/**'
+      - 'upstream.json'
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
