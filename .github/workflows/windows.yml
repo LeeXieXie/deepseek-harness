@@ -1,0 +1,98 @@
+name: Build community Windows x64 ZIP
+on:
+  workflow_dispatch:
+    inputs:
+      publish_draft:
+        description: Create a draft community Release only after successful build
+        required: true
+        default: false
+        type: boolean
+      version:
+        description: Unique PRODUCTVERSION.YYYYMMDD.SEQUENCE (blank uses upstream.json)
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: community-windows-build
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.28.5'
+          run_install: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Set up Rust and verify native build prerequisites
+        run: |
+          rustup default stable-x86_64-pc-windows-msvc
+          rustc --version
+          if ($LASTEXITCODE -ne 0) { throw 'Rust missing' }
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (!$vs) { throw 'Visual C++ tools missing from hosted runner' }
+          $env:PYTHON = (Get-Command python).Source
+          "PYTHON=$env:PYTHON" >> $env:GITHUB_ENV
+          git config --global core.longpaths true
+      - name: Resolve release version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          $version = $env:REQUESTED_VERSION
+          if (!$version) { $version = (Get-Content upstream.json -Raw | ConvertFrom-Json).version }
+          if ($version -notmatch '^\d+\.\d+\.\d+-rc\.\d+\.\d{8}\.\d+$') { throw 'Invalid version' }
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - name: Build unsigned directory and archive
+        env:
+          COMMUNITY_VERSION: ${{ inputs.version }}
+        run: ./scripts/build.ps1 -Version $env:COMMUNITY_VERSION
+      - name: Retain ZIP, checksums and build record
+        uses: actions/upload-artifact@v4
+        with:
+          name: dshdesktop-windows-x64-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/*/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Retain upstream packaging diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaging-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .work/*/source/apps/desktop/.desktop-build/packaging-runs/
+          if-no-files-found: warn
+          retention-days: 7
+  release:
+    needs: build
+    if: ${{ inputs.publish_draft && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dshdesktop-windows-x64-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-assets
+      - name: Create draft for manual GUI qualification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+          RECIPE_COMMIT: ${{ github.sha }}
+        run: |
+          gh release create "v$RELEASE_VERSION" release-assets/* --target "$RECIPE_COMMIT" --draft --prerelease --title "dshdesktop community $RELEASE_VERSION" --notes "Unsigned community build, not an official DeepSeek release. GUI qualification required before publication. See build-source.json and SHA256SUMS."
