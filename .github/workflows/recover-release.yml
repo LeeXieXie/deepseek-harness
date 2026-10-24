@@ -1,0 +1,27 @@
+name: Recover verified build artifacts
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Windows build run containing the verified ZIP
+        required: true
+        default: '40065258134'
+permissions:
+  contents: write
+  actions: read
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download unchanged verified assets and upload draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_RUN_ID: ${{ inputs.run_id }}
+        run: |
+          case "$BUILD_RUN_ID" in *[!0-9]*|'') exit 1 ;; esac
+          gh run download "$BUILD_RUN_ID" --name "dshdesktop-windows-x64-$BUILD_RUN_ID-1" --dir verified
+          directory=verified/0.2.1-rc.3.20261024.1
+          (cd "$directory" && sha256sum --check SHA256SUMS)
+          gh release upload v0.2.1-rc.3.20261024.1 "$directory/"* --clobber
